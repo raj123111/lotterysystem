@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lottery System</title>
+    <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
+    <style>
+        body { 
+            padding-top: 20px; 
+            padding-bottom: 20px; 
+        }
+        .timer {
+            font-size: 2.5rem;
+            font-weight: bold;
+        }
+        .alert {
+            margin-top: 20px;
+        }
+        .lottery-card {
+            margin-bottom: 20px;
+        }
+        .winner-card {
+            margin-top: 30px;
+        }
+        .participant-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row mb-4">
+            <div class="col-md-12 text-center">
+                <h1 class="mb-3">Web Lottery System</h1>
+                <h4 class="text-muted">Register within the time limit for a chance to win!</h4>
+            </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="row">
+            <div class="col-md-7">
+                <div class="card lottery-card">
+                    <div class="card-header">
+                        <h3>Lottery Status</h3>
+                    </div>
+                    <div class="card-body">
+                        {% if lottery_state.active %}
+                            <h4 class="text-primary">
+                                {% if lottery_state.status == 'extended' %}
+                                    Extended Registration Period
+                                {% else %}
+                                    Registration Open
+                                {% endif %}
+                            </h4>
+                            <div class="d-flex flex-column align-items-center my-4">
+                                <h5>Time Remaining:</h5>
+                                <div class="timer" id="countdown">
+                                    {{ "%02d"|format(remaining_seconds // 60) }}:{{ "%02d"|format(remaining_seconds % 60) }}
+                                </div>
+                            </div>
+                            
+                            <form action="/register" method="post" class="mt-4">
+                                <div class="mb-3">
+                                    <label for="username" class="form-label">Enter your username:</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="username" name="username" 
+                                               placeholder="Enter a unique username" required>
+                                        <button type="submit" class="btn btn-primary">Register</button>
+                                    </div>
+                                    <div class="form-text">Username can only contain letters, numbers, and underscores.</div>
+                                </div>
+                            </form>
+                        {% elif lottery_state.status == 'completed' %}
+                            <div class="text-center">
+                                <h4 class="text-success">Lottery Completed!</h4>
+                                {% if lottery_state.winner %}
+                                    <div class="winner-card mt-4 p-4 bg-success bg-opacity-25 rounded">
+                                        <h2>Winner: {{ lottery_state.winner }}</h2>
+                                        <p class="text-muted">Total participants: {{ participants|length }}</p>
+                                    </div>
+                                {% else %}
+                                    <div class="alert alert-warning">
+                                        No participants registered. The lottery was cancelled.
+                                    </div>
+                                {% endif %}
+                                <form action="/start_lottery" method="post" class="mt-4">
+                                    <button type="submit" class="btn btn-primary btn-lg">Start a New Lottery</button>
+                                </form>
+                            </div>
+                        {% else %}
+                            <div class="text-center">
+                                <h4 class="text-secondary">No Active Lottery</h4>
+                                <p>Click the button below to start registration.</p>
+                                <form action="/start_lottery" method="post" class="mt-4">
+                                    <button type="submit" class="btn btn-primary btn-lg">Start Lottery</button>
+                                </form>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="card-footer text-muted">
+                        {% if lottery_state.active %}
+                            <strong>Current participants:</strong> {{ participants|length }}
+                            <br>
+                            <small>
+                                {% if participants|length < 5 and lottery_state.status != 'extended' %}
+                                    If less than 5 users register, the lottery will extend for 30 more seconds.
+                                {% endif %}
+                            </small>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-5">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Participants</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="participant-list">
+                            {% if participants %}
+                                <ul class="list-group">
+                                    {% for username in participants %}
+                                        <li class="list-group-item">{{ username }}</li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p class="text-muted text-center">No participants yet</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Only if the lottery is active, update the countdown
+        {% if lottery_state.active %}
+            // Update the countdown timer
+            let countdownElement = document.getElementById('countdown');
+            let remainingSeconds = {{ remaining_seconds }};
+            
+            function updateCountdown() {
+                if (remainingSeconds > 0) {
+                    remainingSeconds--;
+                    const minutes = Math.floor(remainingSeconds / 60);
+                    const seconds = remainingSeconds % 60;
+                    countdownElement.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                    setTimeout(updateCountdown, 1000);
+                } else {
+                    // Refresh the page to see the results
+                    location.reload();
+                }
+            }
+            
+            // Start the countdown
+            updateCountdown();
+            
+            // Periodically check the server status
+            setInterval(function() {
+                fetch('/status')
+                    .then(response => response.json())
+                    .then(data => {
+                        // If lottery ended or status changed, reload the page
+                        if (!data.active || remainingSeconds <= 0) {
+                            location.reload();
+                        }
+                    });
+            }, 5000);
+        {% endif %}
+    </script>
+</body>
+</html>
